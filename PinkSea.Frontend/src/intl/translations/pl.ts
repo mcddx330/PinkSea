@@ -52,9 +52,11 @@ export default {
     could_not_send_post: "Wystąpił błąd podczas wysyłania posta. Prosimy spróbować później. Twój post został zapisany w przeglądarce.",
     add_a_description: "Dodaj opis!",
     tag: "Tag",
-    crosspost_to_bluesky: "Wyślij dodatkowo na BlueSky"
+    crosspost_to_bluesky: "Wyślij dodatkowo na BlueSky",
+    upload: "Wyślij!"
   },
   profile: {
-    bluesky_profile: "Profil Bluesky"
+    bluesky_profile: "Profil Bluesky",
+    domain: "Strona internetowa"
   }
 };
