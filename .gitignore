@@ -166,3 +166,10 @@ coverage
 *.sw?
 
 *.tsbuildinfo
+
+PinkSea.Gateway/wwwroot/
+
+.env
+.env.local
+
+docker_data/

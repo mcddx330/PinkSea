@@ -8,7 +8,10 @@ import PostView from '@/views/PostView.vue'
 import { xrpc } from '@/api/atproto/client'
 import TagView from '@/views/TagView.vue'
 import SettingsView from '@/views/SettingsView.vue'
-import i18next from 'i18next'
+import { withTegakiViewBackProtection } from '@/api/tegaki/tegaki-view-helper'
+import SearchView from '@/views/SearchView.vue'
+import UserEditView from '@/views/UserEditView.vue'
+import { withHandleDidRouteResolver } from '@/api/atproto/handle-did-route-resolver'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -44,7 +47,7 @@ const router = createRouter({
       component: UserView,
       meta: {
         resolveBreadcrumb: async (route: RouteParamsGeneric) => {
-          const { data } = await xrpc.get("com.shinolabs.pinksea.getHandleFromDid", { params: { did: route.did as string }});
+          const { data } = await xrpc.get("com.shinolabs.pinksea.getHandleFromDid", { params: { did: route.did as string } });
           return { name: 'breadcrumb.user_profile', params: { handle: data.handle } };
         }
       }
@@ -55,7 +58,7 @@ const router = createRouter({
       component: PostView,
       meta: {
         resolveBreadcrumb: async (route: RouteParamsGeneric) => {
-          const { data } = await xrpc.get("com.shinolabs.pinksea.getHandleFromDid", { params: { did: route.did as string }});
+          const { data } = await xrpc.get("com.shinolabs.pinksea.getHandleFromDid", { params: { did: route.did as string } });
           return { name: "breadcrumb.user_post", params: { handle: data.handle } };
         }
       }
@@ -76,7 +79,27 @@ const router = createRouter({
       component: SettingsView,
       meta: {
         resolveBreadcrumb: async () => {
-          return {  name: 'breadcrumb.settings' };
+          return { name: 'breadcrumb.settings' };
+        }
+      }
+    },
+    {
+      path: '/settings/profile',
+      name: 'profile-settings',
+      component: UserEditView,
+      meta: {
+        resolveBreadcrumb: async () => {
+          return { name: 'breadcrumb.settings' };
+        }
+      }
+    },
+    {
+      path: '/search/:value',
+      name: 'search',
+      component: SearchView,
+      meta: {
+        resolveBreadcrumb: async (route: RouteParamsGeneric) => {
+          return { name: "breadcrumb.search", params: { value: route.value } };
         }
       }
     }
@@ -84,5 +107,7 @@ const router = createRouter({
 });
 
 withBreadcrumb(router);
+withHandleDidRouteResolver(router);
+withTegakiViewBackProtection(router);
 
 export default router

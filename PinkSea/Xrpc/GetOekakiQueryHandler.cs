@@ -1,9 +1,12 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using PinkSea.AtProto.Resolvers.Did;
 using PinkSea.AtProto.Server.Xrpc;
+using PinkSea.AtProto.Shared.Xrpc;
 using PinkSea.Database;
+using PinkSea.Lexicons.Objects;
 using PinkSea.Lexicons.Queries;
-using PinkSea.Models.Dto;
+using PinkSea.Models;
 using PinkSea.Services;
 
 namespace PinkSea.Xrpc;
@@ -12,32 +15,42 @@ namespace PinkSea.Xrpc;
 /// Handler for the "com.shinolabs.pinksea.getOekaki" xrpc call. Retrieves an oekaki post and its children.
 /// </summary>
 [Xrpc("com.shinolabs.pinksea.getOekaki")]
-public class GetOekakiQueryHandler(PinkSeaDbContext dbContext, FeedBuilder feedBuilder, IDidResolver didResolver)
+public class GetOekakiQueryHandler(
+    PinkSeaDbContext dbContext,
+    FeedBuilder feedBuilder,
+    UserService userService,
+    IOptions<AppViewConfig> opts)
     : IXrpcQuery<GetOekakiQueryRequest, GetOekakiQueryResponse>
 {
     /// <inheritdoc />
-    public async Task<GetOekakiQueryResponse?> Handle(GetOekakiQueryRequest request)
+    public async Task<XrpcErrorOr<GetOekakiQueryResponse>> Handle(GetOekakiQueryRequest request)
     {
         var parent = await dbContext.Oekaki
             .Include(o => o.TagOekakiRelations)
+            .Include(o => o.Author)
+            .ThenInclude(u => u.Avatar)
             .FirstOrDefaultAsync(o => o.AuthorDid == request.Did && o.OekakiTid == request.RecordKey);
 
         if (parent == null)
-            return null;
-
+            return XrpcErrorOr<GetOekakiQueryResponse>.Fail("NotFound", "Could not find this record.");
+        
         var childrenFeed = await feedBuilder
             .StartWithOrdering(c => c.IndexedAt)
             .Where(c => c.ParentId == parent.Key)
             .GetFeed();
 
-        return new GetOekakiQueryResponse()
+        return XrpcErrorOr<GetOekakiQueryResponse>.Ok(new GetOekakiQueryResponse()
         {
             Parent =
-                OekakiDto.FromOekakiModel(
-                    parent, 
-                    await didResolver.GetHandleFromDid(parent.AuthorDid) ?? "Invalid handle"),
+                !parent.Tombstone
+            ? HydratedOekaki.FromOekakiModel(
+                parent, 
+                parent.Author,
+                opts.Value.ImageProxyTemplate)
+            : TombstoneOekaki.FromOekakiModel(
+                parent),
             
             Children = childrenFeed.ToArray()
-        };
+        });
     }
 }

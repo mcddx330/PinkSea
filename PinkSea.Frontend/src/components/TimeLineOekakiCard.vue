@@ -2,8 +2,9 @@
 import { computed } from 'vue'
 import type { Oekaki } from '@/models/oekaki'
 import { useRouter } from 'vue-router'
-import TagContainer from '@/components/TagContainer.vue'
 import { usePersistedStore } from '@/state/store'
+import { buildOekakiUrlFromOekakiObject } from '@/api/atproto/helpers'
+import OekakiMetaContainer from './oekaki/OekakiMetaContainer.vue'
 
 const router = useRouter();
 const persistedStore = usePersistedStore();
@@ -12,58 +13,33 @@ const props = defineProps<{
   oekaki: Oekaki
 }>()
 
-const options: Intl.DateTimeFormatOptions = {
-  year: 'numeric',
-  month: 'long',
-  day: 'numeric'
-}
-
-const imageLink = computed(() => `url(${props.oekaki.imageLink})`)
-const authorProfileLink = computed(() => `/${props.oekaki.authorDid}`);
-const creationTime = computed(() => {
-  return new Date(props.oekaki.creationTime).toLocaleTimeString(persistedStore.lang, options)
-})
+const imageLink = computed(() => `url(${props.oekaki.image})`)
 const altText = computed(() => props.oekaki.alt ?? "");
 
 const navigateToPost = () => {
-  router.push(`/${props.oekaki.authorDid}/oekaki/${props.oekaki.oekakiRecordKey}`);
+  const url = buildOekakiUrlFromOekakiObject(props.oekaki);
+  router.push(url);
 };
 
 const openInNewTab = () => {
-  window.open(`/${props.oekaki.authorDid}/oekaki/${props.oekaki.oekakiRecordKey}`, "_blank");
+  const url = buildOekakiUrlFromOekakiObject(props.oekaki);
+  window.open(url, "_blank");
 };
+
+
 </script>
 
 <template>
   <div class="oekaki-card" v-if="!props.oekaki.nsfw || (props.oekaki.nsfw && !persistedStore.hideNsfw)">
-    <div class="oekaki-image" v-on:click.prevent="navigateToPost" v-on:mousedown.middle.stop.prevent="openInNewTab" :title="altText">
+    <div class="oekaki-image" v-on:click.prevent="navigateToPost" v-on:mousedown.middle.stop.prevent="openInNewTab"
+      :title="altText">
       <div class="oekaki-nsfw-blur" v-if="props.oekaki.nsfw && persistedStore.blurNsfw">NSFW</div>
     </div>
-    <div class="oekaki-meta">
-      <span>{{ $t("timeline.by_before_handle") }}<b class="oekaki-author"> <RouterLink :to="authorProfileLink" >@{{ props.oekaki.authorHandle }}</RouterLink></b>{{ $t("timeline.by_after_handle") }}</span><br>
-      <span>{{ creationTime }}</span><br>
-      <TagContainer v-if="props.oekaki.tags !== undefined && props.oekaki.tags.length > 0" :tags="props.oekaki.tags" />
-      <div class="oekaki-tag-container-substitute" v-else>.</div>
-    </div>
+    <OekakiMetaContainer :oekaki="props.oekaki" :show-substitute-on-no-tags="true" />
   </div>
 </template>
 
 <style scoped>
-.oekaki-tag-container-substitute {
-  margin-top: 10px;
-  padding: 5px;
-  visibility: hidden;
-}
-
-.oekaki-author {
-  text-decoration: underline dotted;
-}
-
-.oekaki-author:hover {
-  text-decoration: underline;
-  cursor: pointer;
-}
-
 .oekaki-nsfw-blur {
   width: 100%;
   height: 100%;
@@ -108,14 +84,6 @@ const openInNewTab = () => {
   cursor: pointer;
 }
 
-.oekaki-meta {
-  font-size: small;
-  padding: 10px;
-  color: #2f4858;
-  border-top: 2px dashed #FFB6C1;
-  border-left: 0.525em solid #FFB6C1;
-}
-
 @-moz-document url-prefix() {
   .oekaki-nsfw-blur {
     backdrop-filter: blur(30px);
@@ -127,6 +95,12 @@ const openInNewTab = () => {
   .oekaki-card {
     display: inline-block;
     width: calc(100% - 30px);
+  }
+}
+
+@media (min-width: 768px) and (max-width: 932px) {
+  .oekaki-card {
+    width: calc((100% / 2) - 25px);
   }
 }
 </style>

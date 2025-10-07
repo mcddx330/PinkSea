@@ -1,3 +1,5 @@
+using PinkSea.Database.Models;
+
 namespace PinkSea.Extensions;
 
 /// <summary>
@@ -15,8 +17,25 @@ public static class StringExtensions
         // First normalize the tag.
         var normalized = tag.Trim();
         normalized = normalized.TrimStart('#')
-            .Replace(' ', '-');
+            .Replace(' ', '_');
 
         return normalized;
+    }
+
+    /// <summary>
+    /// Maps an ATProto repo status to a PinkSea repo status.
+    /// </summary>
+    /// <param name="status">The repo status string.</param>
+    /// <returns>The UserRepoStatus.</returns>
+    public static UserRepoStatus ToRepoStatus(this string status)
+    {
+        return status switch
+        {
+            "takendown" => UserRepoStatus.TakenDown,
+            "suspended" => UserRepoStatus.Suspended,
+            "deactivated" => UserRepoStatus.Deactivated,
+            "deleted" => UserRepoStatus.Deleted,
+            _ => UserRepoStatus.Unknown
+        };
     }
 }

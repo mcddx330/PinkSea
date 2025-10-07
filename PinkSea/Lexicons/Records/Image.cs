@@ -1,5 +1,5 @@
 using System.Text.Json.Serialization;
-using PinkSea.AtProto.Lexicons.Types;
+using PinkSea.AtProto.Shared.Lexicons.Types;
 
 namespace PinkSea.Lexicons.Records;
 
@@ -13,12 +13,6 @@ public class Image
     /// </summary>
     public class ImageLinkObject
     {
-        /// <summary>
-        /// Fully-qualified URL where a large version of the image can be fetched.
-        /// </summary>
-        [JsonPropertyName("fullsize")]
-        public required string FullSize { get; set; }
-        
         /// <summary>
         /// Alt text description of the image, for accessibility.
         /// </summary>

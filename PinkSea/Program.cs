@@ -8,6 +8,7 @@ using PinkSea.Database;
 using PinkSea.Middleware;
 using PinkSea.Models;
 using PinkSea.Services;
+using PinkSea.Services.Hosting;
 using PinkSea.Services.Integration;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -32,13 +33,24 @@ builder.Services.AddSingleton<ConfigurationService>();
 builder.Services.AddScoped<OekakiService>();
 builder.Services.AddScoped<TagsService>();
 builder.Services.AddScoped<BlueskyIntegrationService>();
+builder.Services.AddScoped<FirstTimeRunAssistantService>();
+builder.Services.AddScoped<SearchService>();
+builder.Services.AddScoped<UserService>();
 builder.Services.AddTransient<FeedBuilder>();
 builder.Services.AddDbContext<PinkSeaDbContext>();
-builder.Services.AddAtProtoClientServices();
+
+builder.Services.AddAtProtoClientServices(o =>
+{
+    o.PlcDirectory = new Uri(builder.Configuration["AppViewConfig:PlcDirectory"]!);
+});
+
 builder.Services.AddJetStream(o =>
 {
-    o.WantedCollections = ["com.shinolabs.pinksea.oekaki"];
+    o.Endpoint = builder.Configuration["AppViewConfig:JetStreamEndpoint"];
+    o.CursorFilePath = builder.Configuration["AppViewConfig:CursorFilePath"];
+    o.WantedCollections = ["com.shinolabs.pinksea.oekaki", "com.shinolabs.pinksea.profile"];
 });
+
 builder.Services.AddScoped<IJetStreamEventHandler, OekakiJetStreamEventHandler>();
 builder.Services.AddXrpcHandlers();
 
@@ -52,6 +64,8 @@ builder.Services.AddCors(options =>
                 .AllowAnyHeader();
         });
 });
+
+builder.Services.AddHostedService<FirstTimeRunAssistantServiceRunner>();
 
 var app = builder.Build();
 

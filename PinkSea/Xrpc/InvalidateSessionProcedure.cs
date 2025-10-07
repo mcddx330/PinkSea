@@ -1,5 +1,9 @@
+using PinkSea.AtProto.Authorization;
+using PinkSea.AtProto.Models.Authorization;
+using PinkSea.AtProto.OAuth;
 using PinkSea.AtProto.Providers.Storage;
 using PinkSea.AtProto.Server.Xrpc;
+using PinkSea.AtProto.Shared.Xrpc;
 using PinkSea.Extensions;
 using PinkSea.Lexicons;
 
@@ -10,20 +14,31 @@ namespace PinkSea.Xrpc;
 /// </summary>
 [Xrpc("com.shinolabs.pinksea.invalidateSession")]
 public class InvalidateSessionProcedure(
+    IAtProtoAuthorizationService atProtoAuthorizationService,
+    IAtProtoOAuthClient oAuthClient,
     IOAuthStateStorageProvider oAuthStateStorageProvider,
     IHttpContextAccessor contextAccessor,
     ILogger<InvalidateSessionProcedure> logger) : IXrpcProcedure<Empty, Empty>
 {
     /// <inheritdoc />
-    public async Task<Empty?> Handle(Empty request)
+    public async Task<XrpcErrorOr<Empty>> Handle(Empty request)
     {
-        var state = contextAccessor.HttpContext?.GetStateToken();
+        var stateId = contextAccessor.HttpContext?.GetStateToken();
+        if (stateId is null)
+            return XrpcErrorOr<Empty>.Ok(new Empty());
+        
+        var state = await oAuthStateStorageProvider.GetForStateId(stateId);
         if (state is null)
-            return new Empty();
+            return XrpcErrorOr<Empty>.Ok(new Empty());
         
-        logger.LogInformation($"Invalidating session for ID {state}");
+        logger.LogInformation("Invalidating session for ID {SessionId}",
+            state);
+
+        if (state.AuthorizationType == AuthorizationType.PdsSession)
+            await atProtoAuthorizationService.InvalidateSession(stateId);
+        else
+            await oAuthClient.InvalidateSession(stateId);
         
-        await oAuthStateStorageProvider.DeleteForStateId(state);
-        return new Empty();
+        return XrpcErrorOr<Empty>.Ok(new Empty());
     }
 }

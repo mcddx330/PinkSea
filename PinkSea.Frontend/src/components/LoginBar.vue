@@ -10,21 +10,23 @@ const loginButton = useTemplateRef<HTMLButtonElement>("login-button");
 
 const beginOAuth = async () => {
   loginButton.value!.disabled = true;
-  const { data } = await xrpc.call("com.shinolabs.pinksea.beginLoginFlow", {
-    data: {
-      handle: handle.value,
-      redirectUrl: `${location.origin}/callback`,
+  try {
+    const { data } = await xrpc.call("com.shinolabs.pinksea.beginLoginFlow", {
+      data: {
+        handle: handle.value,
+        redirectUrl: `${location.origin}/callback`,
 
-      password: password.value.length > 0
-        ? password.value
-        : null
+        password: password.value.length > 0
+          ? password.value
+          : null
+      }
+    });
+
+    if (data.redirect !== null && data.redirect !== undefined) {
+      document.location = data.redirect;
     }
-  });
-
-  if (data.redirect !== null && data.redirect !== undefined) {
-    document.location = data.redirect;
-  } else {
-    alert(`Failed to log in: ${data.failureReason}`);
+  } catch (e) {
+    alert(`Failed to log in: ${e}`);
     loginButton.value!.disabled = false;
   }
 }
@@ -32,13 +34,13 @@ const beginOAuth = async () => {
 
 <template>
   <div>
-    <input type="text" :placeholder="i18next.t('menu.input_placeholder')" v-model="handle">
-    <input type="password" :placeholder="i18next.t('menu.password')" :title="i18next.t('menu.oauth2_info')" v-model="password">
+    <input type="text" v-on:keydown.enter="beginOAuth" :placeholder="i18next.t('menu.input_placeholder')"
+      v-model="handle">
+    <input type="password" v-on:keydown.enter="beginOAuth" :placeholder="i18next.t('menu.password')"
+      :title="i18next.t('menu.oauth2_info')" v-model="password">
     <br />
     <button v-on:click.prevent="beginOAuth" ref="login-button">{{ $t("menu.atp_login") }}</button>
   </div>
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

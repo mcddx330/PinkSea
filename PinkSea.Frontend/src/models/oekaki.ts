@@ -1,10 +1,10 @@
+import type { Author } from '@/models/author'
+
 export interface Oekaki {
-  oekakiRecordKey: string,
-  authorDid: string,
-  authorHandle: string,
-  imageLink: string,
-  atProtoLink: string,
-  oekakiCid: string,
+  author: Author,
+  image: string,
+  at: string,
+  cid: string,
   creationTime: Date,
   tags: string[] | undefined,
   nsfw: boolean,

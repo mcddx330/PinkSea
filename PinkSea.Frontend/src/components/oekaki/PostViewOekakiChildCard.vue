@@ -3,29 +3,57 @@ import { computed } from 'vue'
 import type { Oekaki } from '@/models/oekaki'
 import PostViewOekakiImageContainer from '@/components/oekaki/PostViewOekakiImageContainer.vue'
 import { usePersistedStore } from '@/state/store'
+import { useRouter } from 'vue-router'
+import { xrpc } from '@/api/atproto/client'
+import { formatDate, getRecordKeyFromAtUri } from '@/api/atproto/helpers'
+import PostActions from '@/components/PostActions.vue'
+import Username from '../profile/Username.vue'
+import OekakiMetaContainer from './OekakiMetaContainer.vue'
+import Avatar from '../profile/Avatar.vue'
 
 const props = defineProps<{
-  oekaki: Oekaki
+  oekaki: Oekaki,
+  hideLineBar?: boolean
 }>()
 
+const router = useRouter();
 const persistedStore = usePersistedStore();
 
-const options: Intl.DateTimeFormatOptions = {
-  year: 'numeric',
-  month: 'long',
-  day: 'numeric'
-}
-
-const authorProfileLink = computed(() => `/${props.oekaki.authorDid}`);
+const authorProfileLink = computed(() => `/${props.oekaki.author.did}`);
 const creationTime = computed(() => {
-  return new Date(props.oekaki.creationTime).toLocaleTimeString(persistedStore.lang, options)
+  return formatDate(props.oekaki.creationTime)
 })
+
+const classList = computed(() => {
+  if (!props.hideLineBar)
+    return "oekaki-card line-bar-element"
+  return "oekaki-card"
+})
+
+const redirectToParent = async () => {
+  const rkey = getRecordKeyFromAtUri(props.oekaki.at);
+
+  await router.push(`/${props.oekaki.author.did}/oekaki/${rkey}`);
+};
 </script>
 
 <template>
-  <div class="oekaki-card" v-if="!props.oekaki.nsfw || (props.oekaki.nsfw && !persistedStore.hideNsfw)">
-    <div class="oekaki-child-info">{{ $t("post.response_from_before_handle") }}<b class="oekaki-author"> <RouterLink :to="authorProfileLink" >@{{ props.oekaki.authorHandle }}</RouterLink></b>{{ $t("post.response_from_after_handle") }}{{ $t("post.response_from_at_date") }}{{ creationTime }}</div>
-    <PostViewOekakiImageContainer :oekaki="props.oekaki" style="max-height: 400px;"/>
+  <div :class="classList" v-if="!props.oekaki.nsfw || (props.oekaki.nsfw && !persistedStore.hideNsfw)">
+    <div class="oekaki-child-info">
+      <Avatar :image="props.oekaki.author.avatar" :size="20" />
+      <div class="oekaki-info-text">
+        {{ $t("post.response_from_before_handle") }}
+        <b class="oekaki-author">
+          <RouterLink :to="authorProfileLink">
+            <Username :author='props.oekaki.author' />
+          </RouterLink>
+        </b>
+        {{ $t("post.response_from_after_handle") }}{{ $t("post.response_from_at_date") }}{{ creationTime }}
+      </div>
+      <PostActions :oekaki="props.oekaki" />
+    </div>
+    <PostViewOekakiImageContainer :oekaki="props.oekaki" v-on:click="redirectToParent"
+      style="max-height: 400px; cursor: pointer;" />
   </div>
 </template>
 
@@ -50,24 +78,30 @@ const creationTime = computed(() => {
   position: relative;
 }
 
-.oekaki-card:before {
-  content: ""; z-index: 1;
+.line-bar-element:before {
+  content: "";
+  z-index: 1;
   position: absolute;
-  height: 150%; width: 10px;
+  height: 150%;
+  width: 10px;
   border-left: 2px solid #FFB6C1;
   border-bottom: 2px solid #FFB6C1;
   display: block;
-  left: -22px; top: -100%;
+  left: -22px;
+  top: -100%;
 }
 
-.oekaki-card:nth-of-type(2):before {
-  content: ""; z-index: 1;
+.line-bar-element:nth-of-type(2):before {
+  content: "";
+  z-index: 1;
   position: absolute;
-  height: 90%; width: 10px;
+  height: 90%;
+  width: 10px;
   border-left: 2px solid #FFB6C1;
   border-bottom: 2px solid #FFB6C1;
   display: block;
-  left: -22px; top: -35%;
+  left: -22px;
+  top: -35%;
 }
 
 .oekaki-image-container img {
@@ -78,9 +112,16 @@ const creationTime = computed(() => {
 .oekaki-child-info {
   border-bottom: 2px dashed #FFB6C1;
   padding: 10px;
+  display: flex;
+  align-items: center;
 }
 
-.oekaki-child-info, .oekaki-child-info * {
+.oekaki-child-info>* {
+  margin-right: 5px;
+}
+
+.oekaki-child-info,
+.oekaki-child-info * {
   font-size: small;
 }
 

@@ -1,9 +1,12 @@
+using System.Collections.Concurrent;
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using PinkSea.AtProto.Resolvers.Did;
 using PinkSea.Database;
 using PinkSea.Database.Models;
-using PinkSea.Models.Dto;
+using PinkSea.Lexicons.Objects;
+using PinkSea.Models;
 
 namespace PinkSea.Services;
 
@@ -13,7 +16,8 @@ namespace PinkSea.Services;
 /// <param name="dbContext">The database context.</param>
 public class FeedBuilder(
     PinkSeaDbContext dbContext,
-    IDidResolver didResolver)
+    UserService userService,
+    IOptions<AppViewConfig> opts)
 {
     /// <summary>
     /// The oekaki query.
@@ -21,6 +25,7 @@ public class FeedBuilder(
     private IQueryable<OekakiModel> _query = dbContext
         .Oekaki
         .Include(o => o.TagOekakiRelations)
+        .Where(o => !o.Tombstone)
         .OrderByDescending(o => o.IndexedAt);
 
     /// <summary>
@@ -35,7 +40,8 @@ public class FeedBuilder(
         bool descend = false)
     {
         _query = dbContext.Oekaki
-            .Include(o => o.TagOekakiRelations);
+            .Include(o => o.TagOekakiRelations)
+            .Where(o => !o.Tombstone);
         _query = descend
             ? _query.OrderByDescending(expression)
             : _query.OrderBy(expression);
@@ -92,22 +98,29 @@ public class FeedBuilder(
     }
 
     /// <summary>
-    /// Gets the feed.
+    /// Builds a feed from a list of <see cref="OekakiModel"/>
     /// </summary>
+    /// <param name="list">The oekaki models.</param>
     /// <returns>The list of oekaki DTOs.</returns>
-    public async Task<List<OekakiDto>> GetFeed()
+    public async Task<List<HydratedOekaki>> FromOekakiModelList(IList<OekakiModel> list)
     {
-        var list = await _query.ToListAsync();
-        
         var dids = list.Select(o => o.AuthorDid);
-        var map = new Dictionary<string, string>();
-        foreach (var did in dids)
-            map[did] = await didResolver.GetHandleFromDid(did) ?? "Invalid handle";
+        var map = await userService.GetMultipleUsers(dids);
 
         var oekakiDtos = list
-            .Select(o => OekakiDto.FromOekakiModel(o, map[o.AuthorDid]))
+            .Select(o => HydratedOekaki.FromOekakiModel(o, map[o.AuthorDid], opts.Value.ImageProxyTemplate))
             .ToList();
 
         return oekakiDtos;
+    }
+
+    /// <summary>
+    /// Gets the feed.
+    /// </summary>
+    /// <returns>The list of oekaki DTOs.</returns>
+    public async Task<List<HydratedOekaki>> GetFeed()
+    {
+        var list = await _query.ToListAsync();
+        return await FromOekakiModelList(list);
     }
 }

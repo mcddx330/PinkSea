@@ -11,8 +11,15 @@ namespace PinkSea.AtProto;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddAtProtoClientServices(this IServiceCollection collection)
+    public static IServiceCollection AddAtProtoClientServices(
+        this IServiceCollection collection,
+        Action<AtProtoClientServicesConfig>? config = null)
     {
+        const string endpoint = "PinkSea.AtProto/1.0 (component={0}) (+https://github.com/shinolabs/PinkSea)";
+        
+        var options = new AtProtoClientServicesConfig();
+        config?.Invoke(options);
+        
         collection.AddMemoryCache();
         collection.AddSingleton<IDnsQuery, LookupClient>();
         collection.AddTransient<IDomainDidResolver, DomainDidResolver>();
@@ -24,7 +31,21 @@ public static class ServiceCollectionExtensions
 
         collection.AddHttpClient("did-resolver", client =>
         {
-            client.BaseAddress = new Uri("https://plc.directory");
+            client.DefaultRequestHeaders.Add("User-Agent", 
+                string.Format(endpoint, "DidResolver"));
+            client.BaseAddress = options.PlcDirectory;
+        });
+
+        collection.AddHttpClient("domain-did-resolver", client =>
+        {
+            client.DefaultRequestHeaders.Add("User-Agent", 
+                string.Format(endpoint, "DomainDidResolver"));
+        });
+        
+        collection.AddHttpClient("xrpc-client", client =>
+        {
+            client.DefaultRequestHeaders.Add("User-Agent", 
+                string.Format(endpoint, "XrpcClient"));
         });
 
         return collection;

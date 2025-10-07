@@ -5,20 +5,36 @@ import LoginBar from '@/components/LoginBar.vue'
 import { useIdentityStore, useImageStore, usePersistedStore } from '@/state/store'
 import { useRouter } from 'vue-router'
 import { computed, onBeforeMount, useTemplateRef } from 'vue'
-import { serviceEndpoint, xrpc } from '@/api/atproto/client'
+import { xrpc } from '@/api/atproto/client'
 import i18next from 'i18next'
+import I18n from '@/intl/i18n'
+import { useTranslation } from 'i18next-vue'
 
 const identityStore = useIdentityStore()
 const persistedStore = usePersistedStore()
 const imageStore = useImageStore()
 const router = useRouter()
 const menuRef = useTemplateRef<HTMLElement>("menu-ref");
+const searchbox = useTemplateRef<HTMLElement>("search-box");
+const t = useTranslation();
 
 const selfProfileUrl = computed(() => {
   return `/${identityStore.did}`;
 });
 
 onBeforeMount(async () => {
+  if (persistedStore.lang === null) {
+    // Set the default language of the navigator
+    const navigatorLanguage = navigator.language.slice(0, 2);
+    if (navigatorLanguage in I18n) {
+      persistedStore.lang = navigatorLanguage;
+    } else {
+      persistedStore.lang = "en";
+    }
+  }
+
+  await i18next.changeLanguage(persistedStore.lang);
+
   if (persistedStore.token != null &&
     identityStore.handle == null) {
     try {
@@ -26,7 +42,8 @@ onBeforeMount(async () => {
         params: {},
         headers: {
           "Authorization": `Bearer ${persistedStore.token}`
-        }});
+        }
+      });
 
       identityStore.did = data.did;
       identityStore.handle = data.handle;
@@ -34,8 +51,6 @@ onBeforeMount(async () => {
       persistedStore.token = null;
     }
   }
-
-  await i18next.changeLanguage(persistedStore.lang);
 });
 
 const openPainter = async () => {
@@ -44,6 +59,10 @@ const openPainter = async () => {
 };
 
 const navigateTo = async (url: string) => {
+  if (url == "/search/") {
+    return; // prevent using the search box with no query
+  }
+
   await router.push(url);
 };
 
@@ -53,7 +72,8 @@ const logout = async () => {
       data: {},
       headers: {
         "Authorization": `Bearer ${persistedStore.token}`
-      }});
+      }
+    });
   } finally {
     persistedStore.token = null;
   }
@@ -62,6 +82,14 @@ const logout = async () => {
 const switchMenu = () => {
   menuRef.value!.classList.toggle("in-view");
 };
+
+const getCreateSomethingButtonName = computed(() => {
+  const label = imageStore.lastUploadErrored
+    ? "menu.restore_drawing"
+    : "menu.create_something";
+
+  return t.t(label);
+});
 </script>
 
 <template>
@@ -79,18 +107,31 @@ const switchMenu = () => {
         <h2>{{ $t("sidebar.tag") }}</h2>
       </div>
       <div class="aside-box">
+        <b>{{ $t("menu.search") }}</b>
+        <br />
+        <input type="text" :placeholder="i18next.t('menu.search_placeholder')"
+          v-on:keyup.enter.prevent="navigateTo(`/search/${encodeURI(searchbox.value)}`)" ref="search-box">
+        <button v-on:click.prevent="navigateTo(`/search/${encodeURI(searchbox.value)}`)">{{ $t("menu.search_go")
+        }}</button>
+      </div>
+      <br />
+      <div class="aside-box">
         <div v-if="persistedStore.token === null">
           <div class="prompt">{{ $t("menu.invitation") }}</div>
           <LoginBar />
         </div>
         <div class="prompt" v-else>{{ $t("menu.greeting", { name: identityStore.handle }) }}</div>
         <ul class="aside-menu">
-          <li v-on:click.prevent="navigateTo(selfProfileUrl)" v-if="persistedStore.token !== null">{{ $t("menu.my_oekaki") }}</li>
+          <li v-on:click.prevent="navigateTo(selfProfileUrl)" v-if="persistedStore.token !== null">{{
+            $t("menu.my_oekaki") }}</li>
           <li v-on:click.prevent="navigateTo('/')">{{ $t("menu.recent") }}</li>
           <li v-on:click.prevent="navigateTo('/settings')">{{ $t("menu.settings") }}</li>
           <li v-on:click.prevent="logout" v-if="persistedStore.token !== null">{{ $t("menu.logout") }}</li>
         </ul>
-        <button v-on:click.prevent="openPainter" v-if="persistedStore.token !== null">{{ $t("menu.create_something") }}</button>
+        <div>
+          <button v-on:click.prevent="openPainter" v-if="persistedStore.token !== null">{{ getCreateSomethingButtonName
+          }}</button>
+        </div>
       </div>
       <div class="aside-box bottom">
         {{ $t("sidebar.shinolabs") }}
@@ -130,7 +171,8 @@ const switchMenu = () => {
 
 .container aside {
   display: unset;
-  width: 260px;
+  max-width: 260px;
+  width: 100%;
   height: 100vh;
   background-size: 8px 8px;
   background-image: repeating-linear-gradient(45deg, #FFB6C1 0, #FFB6C1 0.8px, #FFFFFF 0, #FFFFFF 50%);
@@ -177,12 +219,14 @@ h1 {
   padding-bottom: 6px;
 }
 
-h1, .title h2 {
+h1,
+.title h2 {
   padding-right: 4px;
   padding-left: 4px;
 }
 
-.title, .aside-box {
+.title,
+.aside-box {
   box-shadow: 0px 1px #FFB6C1, 0px -1px #FFB6C1;
 }
 
@@ -231,10 +275,6 @@ h1, .title h2 {
     padding: 10px;
 
     z-index: 999;
-  }
-
-  .container main {
-    text-align: center;
   }
 
   .container aside {

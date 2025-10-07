@@ -28,4 +28,14 @@ public class ConfigurationModel
     /// The key id of the JWK.
     /// </summary>
     public required string KeyId { get; set; }
+    
+    /// <summary>
+    /// Have we synchronized the account states?
+    /// </summary>
+    public bool? SynchronizedAccountStates { get; set; }
+    
+    /// <summary>
+    /// Have we imported profiles?
+    /// </summary>
+    public bool? ImportedProfiles { get; set; }
 }

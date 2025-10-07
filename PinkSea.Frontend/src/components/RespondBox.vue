@@ -2,11 +2,10 @@
 
 import { useIdentityStore, useImageStore, usePersistedStore } from '@/state/store'
 import { xrpc } from '@/api/atproto/client'
-import { onBeforeMount, onMounted, ref, useTemplateRef } from 'vue'
+import { onBeforeMount, ref, useTemplateRef } from 'vue'
 import { Tegaki } from '@/api/tegaki/tegaki';
 import type { Oekaki } from '@/models/oekaki'
 import i18next from 'i18next'
-import i18n from '@/intl/i18n'
 
 const identityStore = useIdentityStore();
 const persistedStore = usePersistedStore();
@@ -39,6 +38,14 @@ const reply = () => {
   }
 };
 
+const edit = () => {
+  Tegaki.open({
+    onDone: () => {
+      image.value = Tegaki.flatten().toDataURL("image/png");
+    }
+  })
+}
+
 const cancel = () => {
   image.value = null;
 
@@ -65,7 +72,7 @@ const uploadImage = async () => {
         tags: [],
         alt: alt.value,
         nsfw: nsfw.value,
-        parent: props.parent.atProtoLink,
+        parent: props.parent.at,
         bskyCrosspost: false
       },
       headers: {
@@ -83,16 +90,15 @@ const uploadImage = async () => {
 
     imageStore.lastDoneReply = image.value;
     imageStore.lastReplyErrored = true;
-    imageStore.lastReplyId = props.parent.oekakiRecordKey;
+    imageStore.lastReplyId = props.parent.at;
 
     alert(i18next.t("painter.could_not_send_post"));
   }
 };
 
 onBeforeMount(() => {
-  if (imageStore.lastReplyId == props.parent.oekakiRecordKey
-    && imageStore.lastDoneReply !== null && imageStore.lastReplyErrored)
-  {
+  if (imageStore.lastReplyId == props.parent.at
+    && imageStore.lastDoneReply !== null && imageStore.lastReplyErrored) {
     image.value = imageStore.lastDoneReply;
   }
 })
@@ -107,7 +113,7 @@ onBeforeMount(() => {
         <button v-on:click.prevent="reply">{{ $t("response_box.open_painter") }}</button>
       </div>
       <div v-else>
-        <img :src="image"/>
+        <img :src="image" />
         <br />
         <div class="respond-extra">
           <input type="text" :placeholder="i18next.t('painter.add_a_description')" v-model="alt" />
@@ -115,6 +121,7 @@ onBeforeMount(() => {
         </div>
         <div class="two-buttons">
           <button v-on:click.prevent="cancel">{{ $t("response_box.cancel") }}</button>
+          <button v-on:click.prevent="edit">{{ $t("response_box.edit") }}</button>
           <button v-on:click.prevent="uploadImage" ref="upload-button">{{ $t("response_box.reply") }}</button>
         </div>
       </div>
@@ -150,6 +157,10 @@ img {
 }
 
 .two-buttons {
-    display: flex;
+  display: flex;
+}
+
+input[type=checkbox] {
+  accent-color: #FFB6C1;
 }
 </style>

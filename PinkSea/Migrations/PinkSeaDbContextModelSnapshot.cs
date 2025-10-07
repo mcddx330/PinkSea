@@ -38,9 +38,15 @@ namespace PinkSea.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<bool?>("ImportedProfiles")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("KeyId")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<bool?>("SynchronizedAccountStates")
+                        .HasColumnType("boolean");
 
                     b.HasKey("Id");
 
@@ -77,6 +83,9 @@ namespace PinkSea.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("BlueskyCrosspostRecordTid")
+                        .HasColumnType("text");
+
                     b.Property<DateTimeOffset>("IndexedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -94,9 +103,14 @@ namespace PinkSea.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<bool>("Tombstone")
+                        .HasColumnType("boolean");
+
                     b.HasKey("Key");
 
                     b.HasIndex("ParentId");
+
+                    b.HasIndex("Tombstone");
 
                     b.HasIndex("AuthorDid", "OekakiTid");
 
@@ -138,15 +152,62 @@ namespace PinkSea.Migrations
                     b.ToTable("TagOekakiRelations");
                 });
 
+            modelBuilder.Entity("PinkSea.Database.Models.UserLinkModel", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("UserDid")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserDid");
+
+                    b.ToTable("UserLinkModel");
+                });
+
             modelBuilder.Entity("PinkSea.Database.Models.UserModel", b =>
                 {
                     b.Property<string>("Did")
                         .HasColumnType("text");
 
+                    b.Property<bool>("AppViewBlocked")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("AvatarId")
+                        .HasColumnType("text");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Handle")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Nickname")
+                        .HasColumnType("text");
+
+                    b.Property<int>("RepoStatus")
+                        .HasColumnType("integer");
+
                     b.HasKey("Did");
+
+                    b.HasIndex("AvatarId");
 
                     b.ToTable("Users");
                 });
@@ -154,7 +215,7 @@ namespace PinkSea.Migrations
             modelBuilder.Entity("PinkSea.Database.Models.OekakiModel", b =>
                 {
                     b.HasOne("PinkSea.Database.Models.UserModel", "Author")
-                        .WithMany()
+                        .WithMany("Oekaki")
                         .HasForeignKey("AuthorDid")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -187,9 +248,36 @@ namespace PinkSea.Migrations
                     b.Navigation("Tag");
                 });
 
+            modelBuilder.Entity("PinkSea.Database.Models.UserLinkModel", b =>
+                {
+                    b.HasOne("PinkSea.Database.Models.UserModel", "User")
+                        .WithMany("Links")
+                        .HasForeignKey("UserDid")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("PinkSea.Database.Models.UserModel", b =>
+                {
+                    b.HasOne("PinkSea.Database.Models.OekakiModel", "Avatar")
+                        .WithMany()
+                        .HasForeignKey("AvatarId");
+
+                    b.Navigation("Avatar");
+                });
+
             modelBuilder.Entity("PinkSea.Database.Models.OekakiModel", b =>
                 {
                     b.Navigation("TagOekakiRelations");
+                });
+
+            modelBuilder.Entity("PinkSea.Database.Models.UserModel", b =>
+                {
+                    b.Navigation("Links");
+
+                    b.Navigation("Oekaki");
                 });
 #pragma warning restore 612, 618
         }

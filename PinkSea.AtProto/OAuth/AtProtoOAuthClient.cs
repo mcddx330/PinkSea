@@ -6,13 +6,15 @@ using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using PinkSea.AtProto.Helpers;
 using PinkSea.AtProto.Http;
-using PinkSea.AtProto.Models;
 using PinkSea.AtProto.Models.Authorization;
 using PinkSea.AtProto.Models.OAuth;
+using PinkSea.AtProto.OAuth.Models;
 using PinkSea.AtProto.Providers.OAuth;
 using PinkSea.AtProto.Providers.Storage;
 using PinkSea.AtProto.Resolvers.Did;
 using PinkSea.AtProto.Resolvers.Domain;
+using PinkSea.AtProto.Shared.Models;
+using PinkSea.AtProto.Shared.Xrpc;
 
 namespace PinkSea.AtProto.OAuth;
 
@@ -62,13 +64,13 @@ public class AtProtoOAuthClient(
         string? redirectUrl = null)
     {
         var did = handle;
-        if (!did.StartsWith("did"))
+        if (!did.StartsWith("did:"))
             did = await domainDidResolver.GetDidForDomainHandle(handle);
 
         if (did is null)
             return ErrorOr<string>.Fail($"Could not resolve the DID for {handle}");
         
-        var resolved = await didResolver.GetDidResponseForDid(did!);
+        var resolved = await didResolver.GetDocumentForDid(did!);
         var pds = resolved?.GetPds();
         if (pds is null)
             return ErrorOr<string>.Fail($"Could not resolve the PDS for {did}");
@@ -104,10 +106,11 @@ public class AtProtoOAuthClient(
         var resp = await _client.Post(authServer!.PushedAuthorizationRequestEndpoint!, body, keyPair);
         if (!resp.IsSuccessStatusCode)
         {
-            var reason = await resp.Content.ReadAsStringAsync();
-            Console.WriteLine($"Failed to send a PAR: {reason}");
+            var reason = await resp.Content.ReadFromJsonAsync<OAuthError>();
+            logger.LogError("Failed to send a PAR: {Reason}",
+                reason);
             
-            return ErrorOr<string>.Fail($"PDS returned a non-OK response while sending the PAR: {reason}");
+            return ErrorOr<string>.Fail($"PDS returned a non-OK response while sending the PAR: {reason?.Message}");
         }
 
         var parResponse = await resp.Content.ReadFromJsonAsync<PushedAuthorizationRequestResponse>();
@@ -127,6 +130,7 @@ public class AtProtoOAuthClient(
                 Issuer = authServer.Issuer,
                 KeyPair = keyPair,
                 TokenEndpoint = authServer.TokenEndpoint,
+                RevocationEndpoint = authServer.RevocationEndpoint,
                 Pds = pds,
                 ClientRedirectUrl = redirectUrl
             });
@@ -233,6 +237,78 @@ public class AtProtoOAuthClient(
     }
 
     /// <inheritdoc />
+    public async Task InvalidateSession(string stateId)
+    {
+        try
+        {
+            var oauthState = await oAuthStateStorageProvider.GetForStateId(stateId);
+            if (oauthState is null)
+                return;
+        
+            var clientData = clientDataProvider.ClientData;
+            var assertion = jwtSigningProvider.GenerateClientAssertion(new JwtSigningData
+            {
+                ClientId = clientData.ClientId,
+                Audience = oauthState.Issuer,
+                Key = clientData.Key
+            });
+
+            // Revoke the access token first.
+            var revokeRequest = new TokenRevokeRequest()
+            {
+                ClientId = clientData.ClientId,
+                Token = oauthState.AuthorizationCode!,
+                TokenTypeHint = "access_token",
+                ClientAssertionType = JwtClientAssertionType,
+                ClientAssertion = assertion,
+                CodeVerifier = oauthState.PkceString,
+            };
+            
+            var resp = await _client.Post(
+                oauthState.RevocationEndpoint,
+                revokeRequest,
+                oauthState.KeyPair);
+
+            if (!resp.IsSuccessStatusCode)
+            {
+                logger.LogError($"Failed to revoke the access token: {await resp.Content.ReadAsStringAsync()}");
+            }
+            
+            var assertion2 = jwtSigningProvider.GenerateClientAssertion(new JwtSigningData
+            {
+                ClientId = clientData.ClientId,
+                Audience = oauthState.Issuer,
+                Key = clientData.Key
+            });
+
+            // Now revoke the refresh token.
+            var refreshRevokeRequest = new TokenRevokeRequest()
+            {
+                ClientId = clientData.ClientId,
+                Token = oauthState.RefreshToken!,
+                TokenTypeHint = "refresh_token",
+                ClientAssertionType = JwtClientAssertionType,
+                ClientAssertion = assertion2,
+                CodeVerifier = oauthState.PkceString,
+            };
+            
+            var resp2 = await _client.Post(
+                oauthState.RevocationEndpoint,
+                refreshRevokeRequest,
+                oauthState.KeyPair);
+            
+            if (!resp2.IsSuccessStatusCode)
+            {
+                logger.LogError($"Failed to revoke the refresh token: {await resp2.Content.ReadAsStringAsync()}");
+            }
+        }
+        finally
+        {
+            await oAuthStateStorageProvider.DeleteForStateId(stateId);
+        }
+    }
+
+    /// <inheritdoc />
     public async Task<ProtectedResource?> GetOAuthProtectedResourceForPds(string pds)
     {
         const string wellKnownUrl = "/.well-known/oauth-protected-resource";
@@ -265,7 +341,7 @@ public class AtProtoOAuthClient(
     /// Generates a DPoP keypair.
     /// </summary>
     /// <returns>The DPoP keypair.</returns>
-    private DpopKeyPair GenerateDPopKeypair()
+    private static DpopKeyPair GenerateDPopKeypair()
     {
         using var ecdsa = ECDsa.Create(ECCurve.CreateFromFriendlyName("nistp256"));
         return new DpopKeyPair

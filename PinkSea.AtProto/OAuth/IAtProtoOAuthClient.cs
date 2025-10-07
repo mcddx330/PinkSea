@@ -1,5 +1,6 @@
-using PinkSea.AtProto.Models;
 using PinkSea.AtProto.Models.OAuth;
+using PinkSea.AtProto.OAuth.Models;
+using PinkSea.AtProto.Shared.Models;
 
 namespace PinkSea.AtProto.OAuth;
 
@@ -32,7 +33,14 @@ public interface IAtProtoOAuthClient
     /// Refreshes a state.
     /// </summary>
     /// <param name="stateId">The state id.</param>
+    /// <returns>Whether it has been refreshed.</returns>
     Task<bool> Refresh(string stateId);
+
+    /// <summary>
+    /// Invalidates a state.
+    /// </summary>
+    /// <param name="stateId">The state id.</param>
+    Task InvalidateSession(string stateId);
     
     /// <summary>
     /// Gets the OAuth protected resource for a given PDS.

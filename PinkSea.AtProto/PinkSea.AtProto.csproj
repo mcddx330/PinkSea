@@ -5,6 +5,12 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <OutputType>library</OutputType>
+        <Authors>shinonome laboratories</Authors>
+        <Description>ATProto libraries built for PinkSea.</Description>
+        <PackageProjectUrl>https://github.com/shinolabs/PinkSea/tree/master/PinkSea.AtProto</PackageProjectUrl>
+        <PackageLicenseUrl>https://creativecommons.org/public-domain/cc0/</PackageLicenseUrl>
+        <RepositoryUrl>https://github.com/shinolabs/PinkSea</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
     </PropertyGroup>
 
     <ItemGroup>
@@ -16,6 +22,10 @@
       <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.1.2" />
       <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.1.2" />
       <PackageReference Include="Websocket.Client" Version="5.1.2" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\PinkSea.AtProto.Shared\PinkSea.AtProto.Shared.csproj" />
     </ItemGroup>
 
 </Project>

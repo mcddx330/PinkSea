@@ -1,5 +1,6 @@
 using System.Reflection;
 using Microsoft.AspNetCore.Mvc;
+using PinkSea.AtProto.Shared.Xrpc;
 
 namespace PinkSea.AtProto.Server.Xrpc;
 
@@ -42,20 +43,39 @@ public static class ServiceCollectionExtensions
             "/xrpc/{nsid}",
             HandleXrpc);
 
+        routeBuilder.MapGet(
+            "/xrpc/_health",
+            () => new
+            {
+                version = "PinkSea"
+            });
+
         return routeBuilder;
     }
 
+    /// <summary>
+    /// Handles an XRPC call.
+    /// </summary>
+    /// <param name="ctx">The context.</param>
+    /// <param name="nsid">The namespace ID.</param>
+    /// <param name="serviceProvider">The service provider.</param>
+    /// <returns>The result of the xrpc call.</returns>
     private static async Task<IResult> HandleXrpc(
         HttpContext ctx,
         string nsid,
         [FromServices] IServiceProvider serviceProvider)
     {
         var xrpcHandler = serviceProvider.GetRequiredService<IXrpcHandler>();
-        var result = await xrpcHandler.HandleXrpc(nsid, ctx);
+        var result = await xrpcHandler.HandleXrpc(nsid, ctx) ?? XrpcErrorOr<object>.Fail(
+            "InternalServerError",
+            "An unknown error has occurred.",
+            500);
 
-        if (result is null)
-            return Results.BadRequest();
-            
-        return Results.Ok(result);
+        if (result.IsSuccess)
+            return Results.Ok(result.GetUnderlyingObject());
+
+        return Results.Json(
+            result.Error,
+            statusCode: result.Error!.StatusCode ?? 400);
     }
 }

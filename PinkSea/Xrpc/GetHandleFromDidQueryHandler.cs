@@ -1,5 +1,6 @@
 using PinkSea.AtProto.Resolvers.Did;
 using PinkSea.AtProto.Server.Xrpc;
+using PinkSea.AtProto.Shared.Xrpc;
 using PinkSea.Lexicons.Queries;
 
 namespace PinkSea.Xrpc;
@@ -12,13 +13,13 @@ public class GetHandleFromDidQueryHandler(IDidResolver didResolver)
     : IXrpcQuery<GetHandleFromDidQueryRequest, GetHandleFromDidQueryResponse>
 {
     /// <inheritdoc />
-    public async Task<GetHandleFromDidQueryResponse?> Handle(GetHandleFromDidQueryRequest request)
+    public async Task<XrpcErrorOr<GetHandleFromDidQueryResponse>> Handle(GetHandleFromDidQueryRequest request)
     {
         var handle = await didResolver.GetHandleFromDid(request.Did);
         
-        return new GetHandleFromDidQueryResponse()
+        return XrpcErrorOr<GetHandleFromDidQueryResponse>.Ok(new GetHandleFromDidQueryResponse()
         {
             Handle = handle ?? request.Did
-        };
+        });
     }
 }
